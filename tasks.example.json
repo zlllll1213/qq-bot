@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "settings": {
+    "qq_app_name": "QQ",
+    "search_hotkey": "command+f",
+    "open_wait": 5.0,
+    "search_wait": 1.0,
+    "chat_wait": 1.0,
+    "pre_send_delay": 0.5,
+    "search_result_index": 1,
+    "close_search_overlay": true,
+    "dry_run": true,
+    "restore_front_app": true
+  },
+  "tasks": [
+    {
+      "id": "example-task",
+      "name": "示例任务",
+      "target": "联系人或群聊名称",
+      "time": "09:00",
+      "message": "这里填写要发送的消息",
+      "repeat_daily": false,
+      "enabled": false,
+      "send_enter": true,
+      "last_sent_date": "",
+      "last_error": ""
+    }
+  ]
+}
