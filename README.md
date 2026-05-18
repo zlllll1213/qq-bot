@@ -135,6 +135,7 @@ app.log
 - 确认 Python/终端已开启辅助功能权限。
 - 确认程序仍在运行。
 - Windows 如果默认 `QQ` 无法打开，请在“QQ App 名称”里填写 `QQ.exe` 完整路径，例如 `C:\Program Files\Tencent\QQNT\QQ.exe`。
+- Windows 如果不知道 QQ 路径，可以点击界面里的“查找QQ”；如果仍找不到，点击“浏览...”手动选择 `QQ.exe`。
 - Windows 如果 QQ 已打开但无法激活，请把“QQ App 名称”改成 QQ 窗口标题中能看到的关键字，例如 `QQ`。
 
 ### 搜索框没打开

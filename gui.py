@@ -9,12 +9,12 @@ from typing import Callable
 from uuid import uuid4
 
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 from logger_config import configure_logging
 from models import Task
 from scheduler import TaskScheduler
-from sender import send_message
+from sender import find_qq_app_path, send_message
 from storage import DEFAULT_SETTINGS, TaskStore
 
 
@@ -163,6 +163,12 @@ class QQSenderApp:
         self.dry_run_check = ttk.Checkbutton(settings_frame, text="Dry-run", variable=self.dry_run_var)
         self.dry_run_check.grid(
             row=3, column=0, sticky="w", padx=4, pady=(4, 2)
+        )
+        ttk.Button(settings_frame, text="查找QQ", command=self.find_qq_path, width=8).grid(
+            row=3, column=2, sticky="w", padx=4, pady=(4, 2)
+        )
+        ttk.Button(settings_frame, text="浏览...", command=self.browse_qq_path, width=8).grid(
+            row=3, column=4, sticky="w", padx=4, pady=(4, 2)
         )
         self.dry_run_var.trace_add("write", self._on_dry_run_changed)
 
@@ -368,6 +374,28 @@ class QQSenderApp:
     def _update_char_count(self, _event=None) -> None:
         content = self.message_text.get("1.0", "end-1c")
         self.char_count_var.set(f"{len(content)} 字")
+
+    def find_qq_path(self) -> None:
+        found_path = find_qq_app_path(self.qq_app_name_var.get().strip() or "QQ")
+        if not found_path:
+            self._set_status("未自动找到 QQ，请点击“浏览...”手动选择 QQ.exe")
+            return
+        self.qq_app_name_var.set(found_path)
+        self._set_status("已找到 QQ 路径")
+
+    def browse_qq_path(self) -> None:
+        file_path = filedialog.askopenfilename(
+            title="选择 QQ 程序",
+            filetypes=[
+                ("QQ executable", "QQ*.exe"),
+                ("Executable files", "*.exe"),
+                ("All files", "*.*"),
+            ],
+        )
+        if not file_path:
+            return
+        self.qq_app_name_var.set(file_path)
+        self._set_status("已选择 QQ 路径")
 
     def _sort_by_col(self, col: str) -> None:
         if self._sort_col == col:

@@ -129,14 +129,21 @@ def _windows_candidate_paths(app_name: str) -> list[str]:
         candidates.extend(
             [
                 str(Path(base) / "Tencent" / "QQNT" / "QQ.exe"),
+                str(Path(base) / "Tencent" / "QQNT" / "Bin" / "QQ.exe"),
+                str(Path(base) / "Tencent" / "QQNT" / "QQNT.exe"),
                 str(Path(base) / "Tencent" / "QQ" / "Bin" / "QQ.exe"),
                 str(Path(base) / "Tencent" / "QQ" / "Bin" / "QQScLauncher.exe"),
                 str(Path(base) / "Tencent" / "QQ" / "QQ.exe"),
+                str(Path(base) / "Tencent" / "QQ" / "QQScLauncher.exe"),
+                str(Path(base) / "Programs" / "Tencent" / "QQNT" / "QQ.exe"),
+                str(Path(base) / "Programs" / "Tencent" / "QQ" / "Bin" / "QQ.exe"),
             ]
         )
 
     if app_name.lower() in {"qq", "qq.exe"}:
         candidates.extend(_windows_registry_app_paths())
+        candidates.extend(_windows_uninstall_registry_paths())
+        candidates.extend(_windows_start_menu_shortcut_paths())
 
     seen: set[str] = set()
     unique_candidates = []
@@ -173,6 +180,97 @@ def _windows_registry_app_paths() -> list[str]:
     return paths
 
 
+def _windows_uninstall_registry_paths() -> list[str]:
+    paths: list[str] = []
+    try:
+        import winreg
+
+        subkeys = [
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+            r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+        ]
+        for root in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+            for subkey in subkeys:
+                try:
+                    with winreg.OpenKey(root, subkey) as parent:
+                        count = winreg.QueryInfoKey(parent)[0]
+                        for index in range(count):
+                            try:
+                                child_name = winreg.EnumKey(parent, index)
+                                with winreg.OpenKey(parent, child_name) as child:
+                                    display_name = _read_registry_string(child, "DisplayName")
+                                    if "qq" not in display_name.lower() and "腾讯qq" not in display_name:
+                                        continue
+                                    install_location = _read_registry_string(child, "InstallLocation")
+                                    display_icon = _read_registry_string(child, "DisplayIcon")
+                            except OSError:
+                                continue
+                            if install_location:
+                                paths.extend(
+                                    [
+                                        str(Path(install_location) / "QQ.exe"),
+                                        str(Path(install_location) / "Bin" / "QQ.exe"),
+                                        str(Path(install_location) / "QQScLauncher.exe"),
+                                        str(Path(install_location) / "Bin" / "QQScLauncher.exe"),
+                                    ]
+                                )
+                            if display_icon:
+                                paths.append(display_icon.split(",", 1)[0].strip('"'))
+                except OSError:
+                    continue
+    except Exception:
+        logger.debug("Unable to read Windows uninstall registry entries", exc_info=True)
+    return paths
+
+
+def _read_registry_string(key, name: str) -> str:
+    import winreg
+
+    try:
+        value, _ = winreg.QueryValueEx(key, name)
+    except OSError:
+        return ""
+    return str(value or "")
+
+
+def _windows_start_menu_shortcut_paths() -> list[str]:
+    paths: list[str] = []
+    start_roots = []
+    for env_name in ("PROGRAMDATA", "APPDATA"):
+        base = os.environ.get(env_name)
+        if base:
+            start_roots.append(Path(base) / "Microsoft" / "Windows" / "Start Menu" / "Programs")
+    shortcut_paths = [
+        str(path)
+        for root in start_roots
+        if root.exists()
+        for path in root.rglob("*.lnk")
+        if "qq" in path.name.lower() or "腾讯" in path.name
+    ]
+    if not shortcut_paths:
+        return paths
+
+    try:
+        script = (
+            "$shell = New-Object -ComObject WScript.Shell; "
+            "$args | ForEach-Object { "
+            "$target = $shell.CreateShortcut($_).TargetPath; "
+            "if ($target) { Write-Output $target } "
+            "}"
+        )
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script, *shortcut_paths],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.stdout:
+            paths.extend(line.strip() for line in result.stdout.splitlines() if line.strip())
+    except Exception:
+        logger.debug("Unable to resolve Windows Start Menu shortcuts", exc_info=True)
+    return paths
+
+
 def _resolve_windows_app_path(app_name: str) -> str | None:
     app_name = app_name.strip().strip('"')
     if not app_name:
@@ -191,6 +289,12 @@ def _resolve_windows_app_path(app_name: str) -> str | None:
     for candidate in _windows_candidate_paths(app_name):
         if os.path.exists(candidate):
             return candidate
+    return None
+
+
+def find_qq_app_path(app_name: str = "QQ") -> str | None:
+    if _IS_WINDOWS:
+        return _resolve_windows_app_path(app_name) or _resolve_windows_app_path("QQ")
     return None
 
 
