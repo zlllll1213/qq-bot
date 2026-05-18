@@ -59,7 +59,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Windows 也可以双击 `start.bat` 启动。脚本会自动创建虚拟环境并安装依赖。
+Windows 也可以双击 `start.bat` 启动。脚本会自动创建虚拟环境并安装依赖；如果 Python 或依赖安装有问题，窗口会停住并显示错误原因。
 
 ## 使用方式
 
