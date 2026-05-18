@@ -1,6 +1,6 @@
 pyautogui
 pyperclip
 APScheduler
+pygetwindow; platform_system == "Windows"
 pyobjc-core; platform_system == "Darwin"
 pyobjc-framework-Quartz; platform_system == "Darwin"
-

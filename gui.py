@@ -319,6 +319,9 @@ class QQSenderApp:
         self.root.bind("<Command-s>", lambda _event: self.save_task())
         self.root.bind("<Command-n>", lambda _event: self.new_task())
         self.root.bind("<Command-t>", lambda _event: self.test_send())
+        self.root.bind("<Control-s>", lambda _event: self.save_task())
+        self.root.bind("<Control-n>", lambda _event: self.new_task())
+        self.root.bind("<Control-t>", lambda _event: self.test_send())
         self.root.bind("<Delete>", lambda _event: self.delete_task())
 
     def _build_context_menu(self) -> None:

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import platform
 import subprocess
 import time
 from typing import Any
@@ -11,14 +13,18 @@ import pyperclip
 
 logger = logging.getLogger(__name__)
 pyautogui.FAILSAFE = True
+_SYSTEM = platform.system()
+_IS_DARWIN = _SYSTEM == "Darwin"
+_IS_WINDOWS = _SYSTEM == "Windows"
+_PRIMARY_MODIFIER = "command" if _IS_DARWIN else "ctrl"
 
 _KEY_ALIASES: dict[str, str] = {
-    "cmd": "command",
-    "command": "command",
-    "ctrl": "control",
-    "control": "control",
-    "alt": "option",
-    "option": "option",
+    "cmd": _PRIMARY_MODIFIER,
+    "command": "command" if _IS_DARWIN else "ctrl",
+    "ctrl": "ctrl",
+    "control": "ctrl",
+    "alt": "option" if _IS_DARWIN else "alt",
+    "option": "option" if _IS_DARWIN else "alt",
     "shift": "shift",
     "fn": "fn",
     "return": "enter",
@@ -60,7 +66,78 @@ def _osascript(script: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _app_matches(current: str, app_name: str) -> bool:
+    current_norm = current.strip().lower()
+    app_norm = app_name.strip().lower()
+    if not app_norm:
+        return False
+    if current_norm == app_norm:
+        return True
+    if _IS_WINDOWS:
+        return app_norm in current_norm
+    return False
+
+
+def _get_active_window_title() -> str | None:
+    try:
+        import pygetwindow as gw
+
+        active = gw.getActiveWindow()
+        if active is None:
+            return None
+        return active.title or None
+    except Exception:
+        logger.debug("Unable to determine the active Windows title", exc_info=True)
+        return None
+
+
+def _activate_windows_app(app_name: str) -> None:
+    try:
+        import pygetwindow as gw
+
+        matches = [
+            window
+            for window in gw.getAllWindows()
+            if window.title and _app_matches(window.title, app_name)
+        ]
+        if not matches:
+            raise RuntimeError(f"No visible window title matched {app_name!r}")
+
+        window = matches[0]
+        if getattr(window, "isMinimized", False):
+            window.restore()
+            _sleep(0.2)
+        window.activate()
+    except Exception:
+        logger.debug("Unable to activate Windows app: %s", app_name, exc_info=True)
+        raise
+
+
+def _open_windows_app(app_name: str) -> None:
+    if os.path.exists(app_name):
+        os.startfile(app_name)  # type: ignore[attr-defined]
+        return
+
+    try:
+        subprocess.Popen(
+            ["cmd", "/c", "start", "", app_name],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        logger.debug("Windows shell start failed for %s; trying direct Popen", app_name, exc_info=True)
+        subprocess.Popen(
+            [app_name],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+
 def get_frontmost_app_name() -> str | None:
+    if _IS_WINDOWS:
+        return _get_active_window_title()
+    if not _IS_DARWIN:
+        return None
     try:
         result = _osascript(
             'tell application "System Events" to get name of first application process whose frontmost is true'
@@ -73,6 +150,11 @@ def get_frontmost_app_name() -> str | None:
 
 
 def activate_app(app_name: str) -> None:
+    if _IS_WINDOWS:
+        _activate_windows_app(app_name)
+        return
+    if not _IS_DARWIN:
+        return
     script = f'tell application "{_safe_script_string(app_name)}" to activate'
     _osascript(script)
 
@@ -81,7 +163,7 @@ def wait_for_frontmost_app(app_name: str, timeout: float = 8.0, interval: float 
     deadline = time.time() + max(timeout, 0)
     while time.time() < deadline:
         current = get_frontmost_app_name()
-        if current and current == app_name:
+        if current and _app_matches(current, app_name):
             return True
         time.sleep(interval)
     return False
@@ -89,7 +171,13 @@ def wait_for_frontmost_app(app_name: str, timeout: float = 8.0, interval: float 
 
 def open_qq(app_name: str = "QQ") -> None:
     logger.info("Opening QQ app: %s", app_name)
-    _run_quiet(["open", "-a", app_name])
+    if _IS_DARWIN:
+        _run_quiet(["open", "-a", app_name])
+        return
+    if _IS_WINDOWS:
+        _open_windows_app(app_name)
+        return
+    _run_quiet([app_name])
 
 
 def parse_hotkey(hotkey_text: str) -> list[str]:
@@ -108,18 +196,18 @@ def _press_key_name(key_name: str) -> None:
 def paste_text(text: str) -> None:
     pyperclip.copy(text)
     _sleep(0.15)
-    pyautogui.hotkey("command", "v")
+    pyautogui.hotkey(_PRIMARY_MODIFIER, "v")
 
 
 def clear_active_text_field() -> None:
     """
     Clear the currently focused text field.
 
-    On macOS, Command+A followed by Backspace is a practical way to wipe
+    Command/Ctrl+A followed by Backspace is a practical way to wipe
     whatever search text may still be in the QQ search box from a previous run.
     """
 
-    pyautogui.hotkey("command", "a")
+    pyautogui.hotkey(_PRIMARY_MODIFIER, "a")
     _sleep(0.1)
     pyautogui.press("backspace")
     _sleep(0.1)

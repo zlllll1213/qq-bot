@@ -1,6 +1,6 @@
 # QQ 定时发送助手
 
-一个面向 macOS 的本地 Python 桌面自动化工具。它通过 `tkinter` 提供图形界面，借助 `pyautogui`、`pyperclip` 和系统自动化能力，在指定时间打开 QQ、搜索联系人或群聊，并发送预设消息。
+一个面向 macOS / Windows 的本地 Python 桌面自动化工具。它通过 `tkinter` 提供图形界面，借助 `pyautogui`、`pyperclip` 和系统窗口自动化能力，在指定时间打开 QQ、搜索联系人或群聊，并发送预设消息。
 
 > 本项目只做本地 UI 自动化，不接入 QQ 协议，不使用非官方 QQ API，也不绕过平台安全限制。
 
@@ -18,15 +18,18 @@
 
 ## 环境要求
 
-- macOS
+- macOS 或 Windows
 - Python 3.10 或更高版本
 - 已安装并登录 QQ
-- 需要给运行 Python 的终端或应用开启辅助功能权限：
+- macOS 需要给运行 Python 的终端或应用开启辅助功能权限：
   - 系统设置 -> 隐私与安全性 -> 辅助功能
+- Windows 建议使用普通桌面版 QQ，并保持 QQ 已登录；如果无法激活窗口，可尝试用管理员权限启动终端或填写 QQ 可执行文件完整路径。
 
 基础功能不需要屏幕录制权限。只有后续扩展到截图识别时，才可能需要额外开启屏幕录制权限。
 
 ## 安装与运行
+
+### macOS / Linux shell
 
 ```bash
 git clone https://github.com/zlllll1213/qq-bot.git
@@ -39,9 +42,24 @@ pip install -r requirements.txt
 python main.py
 ```
 
-也可以双击项目根目录下的 `start.command` 启动。首次使用前仍需要先安装依赖。
+macOS 也可以双击项目根目录下的 `start.command` 启动。首次使用前仍需要先安装依赖。
 
 如果第一次双击没有反应，可以右键 `start.command`，选择“打开”，再确认 macOS 的安全提示。
+
+### Windows PowerShell
+
+```powershell
+git clone https://github.com/zlllll1213/qq-bot.git
+cd qq-bot
+
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+python main.py
+```
+
+Windows 也可以双击 `start.bat` 启动。脚本会自动创建虚拟环境并安装依赖。
 
 ## 使用方式
 
@@ -62,9 +80,9 @@ python main.py
 
 ## 界面快捷键
 
-- `Command + N`：新增任务
-- `Command + S`：保存任务
-- `Command + T`：测试发送
+- 新增任务：macOS `Command + N`，Windows `Ctrl + N`
+- 保存任务：macOS `Command + S`，Windows `Ctrl + S`
+- 测试发送：macOS `Command + T`，Windows `Ctrl + T`
 - `Delete`：删除任务
 
 ## 配置文件
@@ -84,9 +102,9 @@ app.log
 
 程序会按以下方式操作 QQ：
 
-1. 使用 `open -a QQ` 打开或激活 QQ。
+1. macOS 使用 `open -a QQ` 打开 QQ；Windows 使用系统启动命令或配置的 QQ 路径打开 QQ。
 2. 等待 QQ 成为前台应用。
-3. 使用搜索快捷键，默认 `command+f`。
+3. 使用搜索快捷键，macOS 默认 `command+f`，Windows 默认 `ctrl+f`。
 4. 粘贴目标联系人或群聊名称。
 5. 根据“搜索结果序号”选择匹配项。
 6. 进入聊天窗口。
@@ -96,8 +114,8 @@ app.log
 
 ## 配置项说明
 
-- `QQ App 名称`：默认 `QQ`
-- `搜索快捷键`：默认 `command+f`
+- `QQ App 名称`：默认 `QQ`。Windows 如无法启动，可填写 QQ.exe 的完整路径。
+- `搜索快捷键`：macOS 默认 `command+f`，Windows 默认 `ctrl+f`
 - `打开后等待`：打开 QQ 后等待秒数
 - `搜索后等待`：搜索目标后等待秒数
 - `聊天后等待`：进入聊天窗口后等待秒数
@@ -119,7 +137,8 @@ app.log
 
 ### 搜索框没打开
 
-- 检查 QQ 当前版本的搜索快捷键是否仍是 `command+f`。
+- 检查 QQ 当前版本的搜索快捷键是否仍是默认值。
+- macOS 通常是 `command+f`，Windows 通常是 `ctrl+f`。
 - 尝试在设置里修改“搜索快捷键”。
 
 ### 消息没发出去
@@ -142,7 +161,8 @@ app.log
 ## 注意事项
 
 - 发送时会短暂激活 QQ。
-- QQ UI 或快捷键变化可能导致自动化流程失效。
+- QQ UI、窗口标题或快捷键变化可能导致自动化流程失效。
+- Windows 窗口激活依赖当前 QQ 窗口标题匹配，“QQ App 名称”可填 `QQ`、窗口标题关键字或 QQ.exe 路径。
 - 建议先使用 Dry-run 或不勾选“发送 Enter”进行测试。
 - 本工具无法确认 QQ 服务端是否真正投递成功，只能确认本地自动化动作是否执行。
 - 请遵守 QQ 平台规则，不要用于骚扰、垃圾消息或任何违法违规用途。

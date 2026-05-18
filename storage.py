@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import tempfile
 import threading
 from pathlib import Path
@@ -13,9 +14,14 @@ from models import Task
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_STORAGE_FILE = BASE_DIR / "tasks.json"
 
+
+def _default_search_hotkey() -> str:
+    return "ctrl+f" if platform.system() == "Windows" else "command+f"
+
+
 DEFAULT_SETTINGS: Dict[str, Any] = {
     "qq_app_name": "QQ",
-    "search_hotkey": "command+f",
+    "search_hotkey": _default_search_hotkey(),
     "open_wait": 5.0,
     "search_wait": 1.0,
     "chat_wait": 1.0,
