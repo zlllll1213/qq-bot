@@ -3,8 +3,10 @@ from __future__ import annotations
 import logging
 import os
 import platform
+import shutil
 import subprocess
 import time
+from pathlib import Path
 from typing import Any
 
 import pyautogui
@@ -113,12 +115,94 @@ def _activate_windows_app(app_name: str) -> None:
         raise
 
 
-def _open_windows_app(app_name: str) -> None:
+def _windows_candidate_paths(app_name: str) -> list[str]:
+    candidates: list[str] = []
+    env = os.environ
+    for base in (
+        env.get("PROGRAMFILES"),
+        env.get("PROGRAMFILES(X86)"),
+        env.get("LOCALAPPDATA"),
+        env.get("APPDATA"),
+    ):
+        if not base:
+            continue
+        candidates.extend(
+            [
+                str(Path(base) / "Tencent" / "QQNT" / "QQ.exe"),
+                str(Path(base) / "Tencent" / "QQ" / "Bin" / "QQ.exe"),
+                str(Path(base) / "Tencent" / "QQ" / "Bin" / "QQScLauncher.exe"),
+                str(Path(base) / "Tencent" / "QQ" / "QQ.exe"),
+            ]
+        )
+
+    if app_name.lower() in {"qq", "qq.exe"}:
+        candidates.extend(_windows_registry_app_paths())
+
+    seen: set[str] = set()
+    unique_candidates = []
+    for candidate in candidates:
+        normalized = os.path.normcase(os.path.abspath(candidate))
+        if normalized not in seen:
+            seen.add(normalized)
+            unique_candidates.append(candidate)
+    return unique_candidates
+
+
+def _windows_registry_app_paths() -> list[str]:
+    paths: list[str] = []
+    try:
+        import winreg
+
+        subkeys = [
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\QQ.exe",
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\QQScLauncher.exe",
+            r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths\QQ.exe",
+            r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths\QQScLauncher.exe",
+        ]
+        for root in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+            for subkey in subkeys:
+                try:
+                    with winreg.OpenKey(root, subkey) as key:
+                        value, _ = winreg.QueryValueEx(key, "")
+                except OSError:
+                    continue
+                if value:
+                    paths.append(str(value))
+    except Exception:
+        logger.debug("Unable to read Windows App Paths registry entries", exc_info=True)
+    return paths
+
+
+def _resolve_windows_app_path(app_name: str) -> str | None:
+    app_name = app_name.strip().strip('"')
+    if not app_name:
+        return None
     if os.path.exists(app_name):
-        os.startfile(app_name)  # type: ignore[attr-defined]
+        return app_name
+
+    which_match = shutil.which(app_name)
+    if which_match:
+        return which_match
+    if not app_name.lower().endswith(".exe"):
+        which_match = shutil.which(f"{app_name}.exe")
+        if which_match:
+            return which_match
+
+    for candidate in _windows_candidate_paths(app_name):
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def _open_windows_app(app_name: str) -> None:
+    resolved_path = _resolve_windows_app_path(app_name)
+    if resolved_path:
+        logger.info("Opening Windows app path: %s", resolved_path)
+        os.startfile(resolved_path)  # type: ignore[attr-defined]
         return
 
     try:
+        logger.info("Opening Windows app through shell: %s", app_name)
         subprocess.Popen(
             ["cmd", "/c", "start", "", app_name],
             stdout=subprocess.DEVNULL,
